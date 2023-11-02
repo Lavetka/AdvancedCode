@@ -7,16 +7,21 @@ namespace Advanced_Code
         public static void Main()
         {
             string downloadFolderPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Downloads";
-            FileSystemFilterDelegate textFileFilter = item => item is FileInfo fileInfo && fileInfo.Extension.Equals(".txt", StringComparison.OrdinalIgnoreCase);
+            FileFilterDelegate textFileFilter = item => item is FileInfo fileInfo && fileInfo.Extension.Equals(".txt", StringComparison.OrdinalIgnoreCase);
+            SubFolderFilterDelegate subFolderFilter = item => item is DirectoryInfo directoryInfo && directoryInfo.FullName.Contains("Hleb");
 
 
-            FileSystemVisitor downloadFolder = new FileSystemVisitor(downloadFolderPath, textFileFilter);
-            var downloadFolderEntities = downloadFolder.Inspect();
+            FileSystemVisitor downloadFolderInspection = new FileSystemVisitor(downloadFolderPath, textFileFilter, subFolderFilter);
 
-            foreach (var item in downloadFolderEntities)
-            {
-                Console.WriteLine(item.FullName);
-            }
+            downloadFolderInspection.Start += (sender, e) => Console.WriteLine($"Search started.");
+            downloadFolderInspection.Finish += (sender, e) => Console.WriteLine
+            ($"Search finished. Is search was aborted: {((FileSystemVisitorsEventArgument)e).AbortSearch}, and if some entities were restricted: {((FileSystemVisitorsEventArgument)e).IsItemsExcluded}");
+            downloadFolderInspection.FileFound += (sender, e) => Console.WriteLine($"File found: {((FileSystemInfo)e).FullName}");
+            downloadFolderInspection.DirectoryFound += (sender, e) => Console.WriteLine($"Directory found: {((FileSystemInfo)e).FullName}");
+            downloadFolderInspection.FilteredFileFound += (sender, e) => Console.WriteLine($"Filtered file found: {((FileSystemInfo)e).FullName}");
+            downloadFolderInspection.FilteredDirectoryFound += (sender, e) => Console.WriteLine($"Filtered directory found: {((FileSystemInfo)e).FullName}");
+
+            downloadFolderInspection.StartSearch();
         }
     }
 }
