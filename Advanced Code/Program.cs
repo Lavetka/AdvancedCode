@@ -7,11 +7,16 @@ namespace Advanced_Code
         public static void Main()
         {
             string downloadFolderPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Downloads";
-            FileFilterDelegate textFileFilter = item => item is FileInfo fileInfo && fileInfo.Extension.Equals(".txt", StringComparison.OrdinalIgnoreCase);
+            FileFilterDelegate textFileFilter = item => item is FileInfo fileInfo && fileInfo.Extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
             SubFolderFilterDelegate subFolderFilter = item => item is DirectoryInfo directoryInfo && directoryInfo.FullName.Contains("Hleb");
 
-
             FileSystemVisitor downloadFolderInspection = new FileSystemVisitor(downloadFolderPath, textFileFilter, subFolderFilter);
+            var ListOfItemInDonloads = downloadFolderInspection.Inspect();
+
+            foreach (var item in ListOfItemInDonloads)
+            {
+                Console.WriteLine("from inspect " + item.ToString());
+            }
 
             downloadFolderInspection.Start += (sender, e) => Console.WriteLine($"Search started.");
             downloadFolderInspection.Finish += (sender, e) => Console.WriteLine

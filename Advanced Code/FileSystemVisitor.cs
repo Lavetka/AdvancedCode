@@ -9,10 +9,8 @@ namespace Advanced_Code
         private readonly string _folderPath;
         private bool _abortSearch;
         private List<FileSystemInfo> _excludedFiles;
-        private List<DirectoryInfo> _excludedFolder;
+        private List<DirectoryInfo> _excludedFolders;
 
-        // we can use this:
-        // private readonly Func<FileSystemInfo, bool> _filter;
         private readonly FileFilterDelegate _fileFilter;
         private readonly SubFolderFilterDelegate _subFolderFilter;
 
@@ -23,14 +21,13 @@ namespace Advanced_Code
         public event EventHandler<FileSystemInfo> FilteredFileFound;
         public event EventHandler<FileSystemInfo> FilteredDirectoryFound;
 
-
         public FileSystemVisitor(string rootPath, FileFilterDelegate filter, SubFolderFilterDelegate subFolderFilter)
         {
             _folderPath = rootPath;
             _fileFilter = filter ?? (item => true);
             _subFolderFilter = subFolderFilter ?? (item => true);
             _excludedFiles = new List<FileSystemInfo>();
-            _excludedFolder = new List<DirectoryInfo>();
+            _excludedFolders = new List<DirectoryInfo>();
         }
 
         public FileSystemVisitor(string rootPath, FileFilterDelegate filter)
@@ -51,48 +48,79 @@ namespace Advanced_Code
 
         public IEnumerable<FileSystemInfo> Inspect()
         {
-            return InspectDirectory(new DirectoryInfo(_folderPath));
+            var list = GetListOfFilesfromDirectory(new DirectoryInfo(_folderPath));
+            if (list == null) Console.WriteLine("There is no such directory, no more");
+            return list;
         }
 
-        private IEnumerable<FileSystemInfo> InspectDirectory(DirectoryInfo directory)
+        private IEnumerable<FileSystemInfo> GetListOfFilesfromDirectory(DirectoryInfo directory)
         {
-            Console.WriteLine("here problem");
             if (directory.Exists)
             {
                 foreach (var file in directory.GetFileSystemInfos())
                 {
-                    FileFound?.Invoke(this, file);
                     if (_fileFilter(file))
                     {
-                        FilteredFileFound?.Invoke(this, file);
                         yield return file;
                     }
-                    else ExcludeFile(file);
                 }
                 foreach (var subdirectory in directory.GetDirectories())
                 {
-                    DirectoryFound?.Invoke(this, subdirectory);
                     if (_subFolderFilter(subdirectory))
                     {
-                        FilteredDirectoryFound?.Invoke(this, subdirectory);
-                        foreach (var file in InspectDirectory(subdirectory))
+                        foreach (var file in GetListOfFilesfromDirectory(subdirectory))
                         {
-                            FileFound?.Invoke(this, file);
                             if (_fileFilter(file))
                             {
-                                FilteredFileFound?.Invoke(this, file);
                                 yield return file;
                             }
-                            else ExcludeFile(file);
                         }
                     }
-                    else ExcludeFolder(subdirectory);
                 }
             }
             else
             {
+                yield break;
+            }
+        }
+
+        private void InspectObjectDirectory(DirectoryInfo directory)
+        {
+            try
+            {
+                if (directory.Exists)
+                {
+                    foreach (var file in directory.GetFileSystemInfos())
+                    {
+                        FileFound?.Invoke(this, file);
+                        (_fileFilter(file) ? (Action)(() => FilteredFileFound?.Invoke(this, file))
+                            : () => ExcludeFile(file)).Invoke();
+                    }
+                    foreach (var subdirectory in directory.GetDirectories())
+                    {
+                        DirectoryFound?.Invoke(this, subdirectory);
+                        if (_subFolderFilter(subdirectory))
+                        {
+                            FilteredDirectoryFound?.Invoke(this, subdirectory);
+                            foreach (var file in GetListOfFilesfromDirectory(subdirectory))
+                            {
+                                FileFound?.Invoke(this, file);
+                                (_fileFilter(file) ? (Action)(() => FilteredFileFound?.Invoke(this, file))
+                                    : () => ExcludeFile(file)).Invoke();
+                            }
+                        }
+                        else ExcludeFolder(subdirectory);
+                    }
+                }
+                else
+                {
+                    throw new Exception("There is no such Directory");
+                }
+            }
+            catch (Exception e)
+            {
                 AbortSearch();
-                throw new Exception("There is no such Directory");
+                throw;
             }
         }
 
@@ -102,7 +130,11 @@ namespace Advanced_Code
             Start?.Invoke(this, EventArgs.Empty);
             try
             {
-                Inspect();
+                InspectObjectDirectory(new DirectoryInfo(_folderPath));
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
             }
             finally
             {
@@ -112,7 +144,7 @@ namespace Advanced_Code
 
         public bool IsExcluded()
         {
-            return _excludedFiles.Count > 0 || _excludedFolder.Count > 0;
+            return _excludedFiles.Count > 0 || _excludedFolders.Count > 0;
         }
 
         public void ExcludeFile(FileSystemInfo item)
@@ -122,7 +154,7 @@ namespace Advanced_Code
 
         public void ExcludeFolder(DirectoryInfo item)
         {
-            _excludedFolder.Add(item);
+            _excludedFolders.Add(item);
         }
 
         public void AbortSearch()
