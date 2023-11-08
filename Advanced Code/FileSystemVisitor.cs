@@ -13,13 +13,17 @@ namespace Advanced_Code
 
         private readonly FileFilterDelegate _fileFilter;
         private readonly SubFolderFilterDelegate _subFolderFilter;
+        private List<FileSystemInfo> _foundFiles = new List<FileSystemInfo>(); 
 
         public event EventHandler Start;
         public event EventHandler Finish;
+        public event EventHandler Abort;
         public event EventHandler<FileSystemInfo> FileFound;
         public event EventHandler<FileSystemInfo> DirectoryFound;
-        public event EventHandler<FileSystemInfo> FilteredFileFound;
+        public event EventHandler<List<FileSystemInfo>> FilteredFilesFound;
         public event EventHandler<FileSystemInfo> FilteredDirectoryFound;
+        public event EventHandler<UserPromptEventArgs> UserPrompt;
+
 
         public FileSystemVisitor(string rootPath, FileFilterDelegate filter, SubFolderFilterDelegate subFolderFilter)
         {
@@ -86,38 +90,76 @@ namespace Advanced_Code
 
         private void InspectObjectDirectory(DirectoryInfo directory)
         {
+            bool isAborted = false;
+
             try
             {
                 if (directory.Exists)
                 {
                     foreach (var file in directory.GetFileSystemInfos())
                     {
-                        FileFound?.Invoke(this, file);
-                        (_fileFilter(file) ? (Action)(() => FilteredFileFound?.Invoke(this, file))
-                            : () => ExcludeFile(file)).Invoke();
-                    }
-                    foreach (var subdirectory in directory.GetDirectories())
-                    {
-                        DirectoryFound?.Invoke(this, subdirectory);
-                        if (_subFolderFilter(subdirectory))
+                        if (_fileFilter(file))
                         {
-                            FilteredDirectoryFound?.Invoke(this, subdirectory);
-                            foreach (var file in GetListOfFilesfromDirectory(subdirectory))
+                            var userPromptArgs = new UserPromptEventArgs(file);
+                            UserPrompt?.Invoke(this, userPromptArgs);
+
+                            if (userPromptArgs.AbortSearch)
                             {
-                                FileFound?.Invoke(this, file);
-                                (_fileFilter(file) ? (Action)(() => FilteredFileFound?.Invoke(this, file))
-                                    : () => ExcludeFile(file)).Invoke();
+                                AbortSearch();
+                                Abort?.Invoke(this, EventArgs.Empty);
+                                isAborted = true;
+                                break;
+                            }
+
+                            if (userPromptArgs.ExcludeItem)
+                            {
+                                ExcludeFile(file);
+                
+                            }
+                            else
+                            {
+                                if (file != null) _foundFiles.Add(file);
                             }
                         }
-                        else ExcludeFolder(subdirectory);
                     }
+                    if (!isAborted)
+                    {
+                        foreach (var subdirectory in directory.GetDirectories())
+                        {
+                            if (_subFolderFilter(subdirectory))
+                            {
+                                foreach (var file in GetListOfFilesfromDirectory(subdirectory))
+                                {
+                                    var userPromptArgs = new UserPromptEventArgs(file);
+                                    UserPrompt?.Invoke(this, userPromptArgs);
+                                    if (userPromptArgs.AbortSearch)
+                                    {
+                                        AbortSearch();
+                                        Abort?.Invoke(this,EventArgs.Empty);
+                                        break;
+                                    }
+
+                                    if (userPromptArgs.ExcludeItem)
+                                    {
+                                        ExcludeFile(file);
+
+                                    }
+                                    else
+                                    {
+                                        if (file != null) _foundFiles.Add(file);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    FilteredFilesFound?.Invoke(this, _foundFiles);
                 }
                 else
                 {
                     throw new Exception("There is no such Directory");
                 }
             }
-            catch (Exception e)
+            catch
             {
                 AbortSearch();
                 throw;
@@ -136,10 +178,7 @@ namespace Advanced_Code
             {
                 Console.WriteLine(e.Message);
             }
-            finally
-            {
-                Finish?.Invoke(this, new FileSystemVisitorsEventArgument(_abortSearch, IsExcluded()));
-            }
+            Finish.Invoke(this, EventArgs.Empty);
         }
 
         public bool IsExcluded()
