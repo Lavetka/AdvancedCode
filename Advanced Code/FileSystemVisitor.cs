@@ -88,7 +88,7 @@ namespace Advanced_Code
             }
         }
 
-        private void InspectObjectDirectory(DirectoryInfo directory)
+        public void InspectObjectDirectory(DirectoryInfo directory)
         {
             bool isAborted = false;
 
@@ -114,11 +114,11 @@ namespace Advanced_Code
                             if (userPromptArgs.ExcludeItem)
                             {
                                 ExcludeFile(file);
-                
+
                             }
                             else
                             {
-                                if (file != null) _foundFiles.Add(file);
+                                if ((file != null) && (file is FileInfo fileInfo)) _foundFiles.Add(file);
                             }
                         }
                     }
@@ -130,23 +130,25 @@ namespace Advanced_Code
                             {
                                 foreach (var file in GetListOfFilesfromDirectory(subdirectory))
                                 {
-                                    var userPromptArgs = new UserPromptEventArgs(file);
-                                    UserPrompt?.Invoke(this, userPromptArgs);
-                                    if (userPromptArgs.AbortSearch)
+                                    if (_fileFilter(file))
                                     {
-                                        AbortSearch();
-                                        Abort?.Invoke(this,EventArgs.Empty);
-                                        break;
-                                    }
+                                        var userPromptArgs = new UserPromptEventArgs(file);
+                                        UserPrompt?.Invoke(this, userPromptArgs);
+                                        if (userPromptArgs.AbortSearch)
+                                        {
+                                            AbortSearch();
+                                            Abort?.Invoke(this, EventArgs.Empty);
+                                            break;
+                                        }
+                                        if (userPromptArgs.ExcludeItem)
+                                        {
+                                            ExcludeFile(file);
 
-                                    if (userPromptArgs.ExcludeItem)
-                                    {
-                                        ExcludeFile(file);
-
-                                    }
-                                    else
-                                    {
-                                        if (file != null) _foundFiles.Add(file);
+                                        }
+                                        else
+                                        {
+                                            if ((file != null) && (file is FileInfo fileInfo)) _foundFiles.Add(file);
+                                        }
                                     }
                                 }
                             }
@@ -174,11 +176,14 @@ namespace Advanced_Code
             {
                 InspectObjectDirectory(new DirectoryInfo(_folderPath));
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine(e.Message);
             }
-            Finish.Invoke(this, EventArgs.Empty);
+            finally
+            {
+                Finish?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         public bool IsExcluded()
