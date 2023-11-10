@@ -6,7 +6,7 @@ namespace UnitTests;
 
 public class Tests
 {
-        [TestFixture]
+    [TestFixture]
     public class FileSystemVisitorTests
     {
         private string _testFolderPath;
@@ -22,7 +22,6 @@ public class Tests
             Directory.CreateDirectory(_testFolderPath);
             Directory.CreateDirectory(_testSubFolderPath);
 
-
             // Create some files and directories for testing
             for (int i = 1; i <= 5; i++)
             {
@@ -34,7 +33,6 @@ public class Tests
         [OneTimeTearDown]
         public void Cleanup()
         {
-            // Clean up resources after all tests are done.
             Directory.Delete(_testFolderPath, true);
         }
 
@@ -102,6 +100,29 @@ public class Tests
             // Assert
             Assert.IsTrue(eventRaised);
             Assert.That(listOfFiles.Count() == expectedResults, $"The result listOf {listOfFiles.Count()} is not equal to expected {expectedResults}");
+        }
+
+        [Test]
+        public void FileSystemVisitor_StartSearch_InvalidDirectory()
+        {
+            // Arrange
+            var folderPath = "NonExistentDirectory";
+            var visitor = new FileSystemVisitor(folderPath);
+            var eventRaised = false;
+
+            visitor.FileFound += (sender, e) =>
+            {
+                eventRaised = true;
+            };
+
+            // Act and Assert
+            Assert.That(() =>
+            {
+                visitor.StartSearch();
+            },
+           Throws.Exception
+            .TypeOf<Exception>()
+            .With.Message.EqualTo("There is no such Directory"));
         }
 
         [Test]
@@ -189,34 +210,6 @@ public class Tests
             Assert.IsTrue(eventRaised);
             Assert.That(listOfFiles.Count() == 10, $"The result listOf {listOfFiles.Count()} is not equal to expected 10 ");
         }
-
-       
-
-
-
-        [Test]
-        public void FileSystemVisitor_StartSearch_InvalidDirectory()
-        {
-            // Arrange
-            var folderPath = "NonExistentDirectory";
-            var visitor = new FileSystemVisitor(folderPath);
-            var eventRaised = false;
-
-            visitor.FileFound += (sender, e) =>
-            {
-                eventRaised = true;
-            };
-
-            // Act and Assert
-            Assert.That(() =>
-            {
-                visitor.InspectObjectDirectory(new DirectoryInfo(folderPath));
-            },
-           Throws.Exception
-            .TypeOf<Exception>()
-            .With.Message.EqualTo("There is no such Directory"));
-        }
-
     }
 }
 

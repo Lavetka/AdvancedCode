@@ -88,7 +88,7 @@ namespace Advanced_Code
             }
         }
 
-        public void InspectObjectDirectory(DirectoryInfo directory)
+        private void InspectObjectDirectory(DirectoryInfo directory)
         {
             bool isAborted = false;
 
@@ -114,7 +114,6 @@ namespace Advanced_Code
                             if (userPromptArgs.ExcludeItem)
                             {
                                 ExcludeFile(file);
-
                             }
                             else
                             {
