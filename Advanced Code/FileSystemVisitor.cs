@@ -21,7 +21,6 @@ namespace Advanced_Code
         public event EventHandler<FileSystemInfo> FileFound;
         public event EventHandler<FileSystemInfo> DirectoryFound;
         public event EventHandler<List<FileSystemInfo>> FilteredFilesFound;
-        public event EventHandler<FileSystemInfo> FilteredDirectoryFound;
         public event EventHandler<UserPromptEventArgs> UserPrompt;
 
 
@@ -142,7 +141,6 @@ namespace Advanced_Code
                                         if (userPromptArgs.ExcludeItem)
                                         {
                                             ExcludeFile(file);
-
                                         }
                                         else
                                         {
@@ -178,6 +176,7 @@ namespace Advanced_Code
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
+                throw;
             }
             finally
             {
@@ -193,6 +192,11 @@ namespace Advanced_Code
         public void ExcludeFile(FileSystemInfo item)
         {
             _excludedFiles.Add(item);
+        }
+
+        public List<FileSystemInfo> GetExcludedFiles()
+        {
+            return _excludedFiles;
         }
 
         public void ExcludeFolder(DirectoryInfo item)

@@ -103,11 +103,12 @@ public class Tests
         }
 
         [Test]
-        public void FileSystemVisitor_StartSearch_InvalidDirectory()
+        [TestCase("NonExistentDirectory")]
+        [TestCase(" ")]
+        public void FileSystemVisitor_StartSearch_InvalidDirectory(string folderName)
         {
             // Arrange
-            var folderPath = "NonExistentDirectory";
-            var visitor = new FileSystemVisitor(folderPath);
+            var visitor = new FileSystemVisitor(folderName);
             var eventRaised = false;
 
             visitor.FileFound += (sender, e) =>
@@ -123,6 +124,64 @@ public class Tests
            Throws.Exception
             .TypeOf<Exception>()
             .With.Message.EqualTo("There is no such Directory"));
+        }
+
+        [Test]
+        [TestCase("")]
+        [TestCase(null)]
+        public void FileSystemVisitor_StartSearch_EmptyDirectory(string folderName)
+        {
+            // Arrange
+            var visitor = new FileSystemVisitor(folderName);
+            var eventRaised = false;
+
+            visitor.FileFound += (sender, e) =>
+            {
+                eventRaised = true;
+            };
+
+            // Act and Assert
+            Assert.That(() =>
+            {
+                visitor.StartSearch();
+            },
+           Throws.Exception.TypeOf<ArgumentException>().Or
+            .TypeOf<ArgumentNullException>());
+        }
+
+        [Test]
+        [TestCase(".jpeg", 0, 5)]
+        [TestCase(".txt", 0, 5)]
+        [TestCase("", 0, 0)]
+        [TestCase(".png", 0, 0)]
+        public void FileSystemVisitor_ExludeFiles_ValidDirectory(string filter, int expectedResults, int expectedExcludedFiles)
+        {
+            // Arrange
+            FileFilterDelegate textFileFilter = item => item is FileInfo fileInfo && fileInfo.Extension.Equals(filter, StringComparison.OrdinalIgnoreCase);
+            var folderPath = _testFolderPath;
+            var visitor = new FileSystemVisitor(folderPath, textFileFilter);
+            var eventRaised = false;
+            var listOfFiles = new List<FileSystemInfo>();
+
+            visitor.UserPrompt += (sender, e) =>
+            {
+                e.ExcludeItem = true;
+            };
+
+            visitor.FilteredFilesFound += (sender, e) =>
+            {
+                listOfFiles = e;
+                eventRaised = true;
+            };
+
+            // Act
+            visitor.StartSearch();
+
+            // Assert
+            Assert.IsTrue(eventRaised);
+            Assert.That(listOfFiles.Count() == expectedResults, $"The result listOf {listOfFiles.Count()} is not equal to expected {expectedResults}");
+            Console.WriteLine(visitor.GetExcludedFiles().Count());
+            Assert.That(visitor.GetExcludedFiles().Count() == expectedExcludedFiles);
         }
 
         [Test]
